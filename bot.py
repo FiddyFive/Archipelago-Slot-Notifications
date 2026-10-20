@@ -18,6 +18,8 @@ async def loop():
     await update()
 
 async def update():
+    global watches
+
     for room in watches:
         with urlopen(roomAPI + room) as response:
             body = response.read()
@@ -52,13 +54,23 @@ async def notify(discordID: str, slotName: str, diff: int):
     if not user: return
     await user.send(slotName + " has " + str(diff) + " new checks.")
 
-
 @bot.event
 async def on_ready():
     global watches
+
+    # Don't use unless the command tree breaks and you can't run the sync command.
+    # try:
+    #     print("Syncing")
+    #     result = await bot.tree.sync()
+    #     print(result)
+    # except Exception as e:
+    #     print(e)
+
+    print("Loading store")
     with open("store.json") as data:
         watches = json.load(data)
         json.dumps
+    print("Ready")
 
 @bot.tree.command()
 async def sync(interaction: discord.Interaction):
@@ -68,6 +80,11 @@ async def sync(interaction: discord.Interaction):
     await interaction.response.send_message("Beginning sync.")
     await bot.tree.sync()
     await interaction.followup.send("Sync complete.")
+
+@discord.app_commands.user_install()
+@bot.tree.command()
+async def debug_update(_):
+    await update()
 
 # Data will be stored in watches["roomToken"]["slotNo"]
 # {
@@ -80,46 +97,55 @@ async def sync(interaction: discord.Interaction):
 # IMPORTANT: Slot No stores the 0 indexed slot ID, which is 1 less than the 1 indexed player ID.
 @discord.app_commands.user_install()
 @bot.tree.command()
-async def watch(interaction: discord.Interaction, roomToken: str, slot: str, rate: int = 60):
+async def watch(interaction: discord.Interaction, roomtoken: str, slot: str, rate: int = 60):
     global watches
-    
-    with urlopen(roomAPI + roomToken) as response:
-        body = response.read()
 
+    await interaction.response.send_message("Requested watch on " + roomtoken + " player " + slot)
+    
+    with urlopen(roomAPI + roomtoken) as response:
+        body = response.read()
     roomData = json.loads(body)
-    slotNo: int = roomData["players"].index(slot)
+
+    slotNo: int = next(i for i,x in enumerate(roomData["players"]) if x[0] == slot)
+    print(str(slotNo))
     
     id = str(interaction.user.id)
-    if not watches[roomToken]:
-        watches[roomToken] = [];
-    watches[roomToken].append({
+
+    if not roomtoken in watches:
+        watches[roomtoken] = []
+
+    watches[roomtoken].append({
         "discordId": id,
-        "slotNo": slotNo,
+        "slotNo": str(slotNo),
         "slotName": slot,
-        "lastReceived": ""
+        "lastCount": "0"
     })
+    print(watches[roomtoken])
+
+    await interaction.followup.send("Created watch on player " + str(slotNo+1))
 
 @discord.app_commands.user_install()
 @bot.tree.command()
-async def unwatch(interaction: discord.Interaction, roomToken: str, slot: str, rate: int = 60):
+async def unwatch(interaction: discord.Interaction, roomtoken: str, slot: str):
     global watches
 
     try:
-        for i, item in enumerate(watches[roomToken]):
+        for i, item in enumerate(watches[roomtoken]):
             if item.slotName == slot:
-                del watches[roomToken][i]
+                del watches[roomtoken][i]
                 await interaction.response.send_message("Deleted watch on " + slot)
-                break   
+                break
+        raise Exception("Did not find this watch")
     except Exception as e:
         await interaction.response.send_message("Error: " + str(e))
         
 
-@discord.app_commands.user_install()
-@bot.tree.command()
-async def watch_port(_: discord.Interaction, roomToken: str):
-    return
+# @discord.app_commands.user_install()
+# @bot.tree.command()
+# async def watch_port(_: discord.Interaction, roomToken: str):
+#     return
 
-async def main():
+async def main(conf):
     async with asyncio.TaskGroup() as group:
         bot_task = group.create_task(bot.start(conf["token"]))
         watch_task = group.create_task(loop())
@@ -130,4 +156,4 @@ if __name__ == '__main__':
     with open("bot.json") as data:
         conf = json.load(data)
 
-    asyncio.run(main())
+    asyncio.run(main(conf))
