@@ -6,6 +6,7 @@ from discord.ext import commands
 import discord
 
 intents = discord.Intents.default()
+intents.members = True
 bot = commands.Bot(command_prefix="", intents=intents)
 watches: dict[str, list]
 
@@ -42,13 +43,15 @@ async def update():
                 }
             ]
             '''
-            mostRecentCount = len(trackerData["player_items_received"][slotObject.slotNo]["items"])
+            mostRecentCount = len(trackerData["player_items_received"][int(slotObject["slotNo"])]["items"])
             previousCount = int(slotObject["lastCount"])
-            if mostRecentCount != slotObject["lastCount"]:
+            if mostRecentCount != previousCount:
                 await notify(slotObject["discordId"], slotObject["slotName"], mostRecentCount - previousCount)
 
 async def notify(discordID: str, slotName: str, diff: int):
-    user = bot.get_user(int(discordID))
+    global bot
+
+    user = await bot.fetch_user(int(discordID))
     # TODO: Test if user exists. 
     #       If not exists, clear all watches tied to that user
     if not user: return
@@ -100,7 +103,7 @@ async def debug_update(_):
 async def watch(interaction: discord.Interaction, roomtoken: str, slot: str, rate: int = 60):
     global watches
 
-    await interaction.response.send_message("Requested watch on " + roomtoken + " player " + slot)
+    await interaction.response.send_message("Requested watch on " + roomtoken + " player " + slot, ephemeral=True)
     
     with urlopen(roomAPI + roomtoken) as response:
         body = response.read()
@@ -122,7 +125,7 @@ async def watch(interaction: discord.Interaction, roomtoken: str, slot: str, rat
     })
     print(watches[roomtoken])
 
-    await interaction.followup.send("Created watch on player " + str(slotNo+1))
+    await interaction.followup.send("Created watch on player " + str(slotNo+1), ephemeral=True)
 
 @discord.app_commands.user_install()
 @bot.tree.command()
