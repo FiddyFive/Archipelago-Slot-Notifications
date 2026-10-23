@@ -17,6 +17,7 @@ roomAPI = "https://archipelago.gg/api/room_status/"
 async def loop():
     await asyncio.sleep(60*60)
     await update()
+    await save()
 
 async def update():
     global watches
@@ -49,6 +50,12 @@ async def update():
                 await notify(slotObject["discordId"], slotObject["slotName"], mostRecentCount - previousCount)
                 slotObject["lastCount"] = str(mostRecentCount)
 
+async def save():
+    global watches
+
+    with open("store.json", 'w') as store:
+        json.dump(watches, store)
+
 async def notify(discordID: str, slotName: str, diff: int):
     global bot
 
@@ -73,12 +80,11 @@ async def on_ready():
     print("Loading store")
     with open("store.json") as data:
         watches = json.load(data)
-        json.dumps
     print("Ready")
 
 @bot.tree.command()
 async def sync(interaction: discord.Interaction):
-    if (not interaction.user.id == bot.owner_id): 
+    if (interaction.user.id != bot.owner_id): 
         await interaction.response.send_message("Insufficient permission, please contact the owner of this bot.")
         return
     await interaction.response.send_message("Beginning sync.")
@@ -89,6 +95,12 @@ async def sync(interaction: discord.Interaction):
 @bot.tree.command()
 async def debug_update(_):
     await update()
+
+@discord.app_commands.user_install()
+@bot.tree.command()
+async def debug_save(_):
+    await save()
+
 
 # Data will be stored in watches["roomToken"]["slotNo"]
 # {
