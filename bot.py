@@ -47,6 +47,7 @@ async def update():
             previousCount = int(slotObject["lastCount"])
             if mostRecentCount != previousCount:
                 await notify(slotObject["discordId"], slotObject["slotName"], mostRecentCount - previousCount)
+                slotObject["lastCount"] = str(mostRecentCount)
 
 async def notify(discordID: str, slotName: str, diff: int):
     global bot
@@ -141,7 +142,11 @@ async def unwatch(interaction: discord.Interaction, roomtoken: str, slot: str):
         raise Exception("Did not find this watch")
     except Exception as e:
         await interaction.response.send_message("Error: " + str(e))
-        
+
+@discord.app_commands.user_install()
+@bot.tree.command()
+async def ping(interaction: discord.Interaction):
+    await interaction.response.send_message("Pong")
 
 # @discord.app_commands.user_install()
 # @bot.tree.command()
