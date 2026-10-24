@@ -15,9 +15,10 @@ trackerAPI = "https://archipelago.gg/api/tracker/"
 roomAPI = "https://archipelago.gg/api/room_status/"
 
 async def loop():
-    await asyncio.sleep(60*60)
-    await update()
-    await save()
+    while True:
+        await asyncio.sleep(60*60)
+        await update()
+        await save()
 
 async def update():
     global watches
